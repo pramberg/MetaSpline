@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "MetaSpline",
+	"Description": "Makes it possible to easily add metadata to a spline using BPs or C++",
+	"Category": "Other",
+	"CreatedBy": "Viktor Pramberg",
+	"CreatedByURL": "https://viktorpramberg.com",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "MetaSpline",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
