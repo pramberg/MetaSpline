@@ -1,7 +1,5 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright(c) 2021 Viktor Pramberg
 #include "MetaSpline.h"
-
-#define LOCTEXT_NAMESPACE "FMetaSplineModule"
 
 void FMetaSplineModule::StartupModule()
 {
@@ -11,6 +9,4 @@ void FMetaSplineModule::ShutdownModule()
 {
 }
 
-#undef LOCTEXT_NAMESPACE
-	
 IMPLEMENT_MODULE(FMetaSplineModule, MetaSpline)

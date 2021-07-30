@@ -1,5 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
+// Copyright(c) 2021 Viktor Pramberg
 #pragma once
 
 #include "CoreMinimal.h"
@@ -8,7 +7,7 @@
 #include "MetaSplineComponent.generated.h"
 
 /**
- * 
+ * A spline component with a simple interface for adding metadata to spline points.
  */
 UCLASS()
 class METASPLINE_API UMetaSplineComponent : public USplineComponent
@@ -18,25 +17,8 @@ class METASPLINE_API UMetaSplineComponent : public USplineComponent
 public:
 	UMetaSplineComponent();
 
-	virtual USplineMetadata* GetSplinePointsMetadata() override { return Metadata; }
-	virtual const USplineMetadata* GetSplinePointsMetadata() const override { return Metadata; }
-
-
-	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Metadata)
-	TSubclassOf<UObject> MetadataClass;
-
-
-	virtual void PostLoad() override;
-
-
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-
-
-	virtual void PostEditImport() override;
-
-	UFUNCTION(BlueprintCallable, Category="Spline|Metadata")
+	// -- New metadata accessors --
+	UFUNCTION(BlueprintCallable, Category = "Spline|Metadata")
 	float GetMetadataFloatAtPoint(FName InProperty, int32 InIndex);
 
 	UFUNCTION(BlueprintCallable, Category = "Spline|Metadata")
@@ -48,7 +30,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Spline|Metadata")
 	FVector GetMetadataVectorAtKey(FName InProperty, float InKey);
 
-	virtual void UpdateSpline() override;
+public:
+	// -- Overrides --
+	virtual void PostLoad() override;
+	virtual void PostEditImport() override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
+
+	virtual USplineMetadata* GetSplinePointsMetadata() override { return Metadata; }
+	virtual const USplineMetadata* GetSplinePointsMetadata() const override { return Metadata; }
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Metadata)
+	TSubclassOf<UObject> MetadataClass;
 
 private:
 	UPROPERTY()

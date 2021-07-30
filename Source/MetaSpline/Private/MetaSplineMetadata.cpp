@@ -1,8 +1,7 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
+// Copyright(c) 2021 Viktor Pramberg
 #include "MetaSplineMetadata.h"
 #include "MetaSplineComponent.h"
+#include "MetaSplineTemplateHelpers.h"
 
 void UMetaSplineMetadata::InsertPoint(int32 Index, float t, bool bClosedLoop)
 {
@@ -17,7 +16,6 @@ void UMetaSplineMetadata::InsertPoint(int32 Index, float t, bool bClosedLoop)
 
 	if (Index >= NumPoints)
 	{
-		// Just add point to the end instead of trying to insert
 		AddPoint(InputKey);
 	}
 	else
@@ -50,11 +48,11 @@ void UMetaSplineMetadata::UpdatePoint(int32 Index, float t, bool bClosedLoop)
 {
 	check(Index >= 0 && Index < NumPoints);
 
-	int32 PrevIndex = (bClosedLoop && Index == 0 ? NumPoints - 1 : Index - 1);
-	int32 NextIndex = (bClosedLoop && Index + 1 > NumPoints ? 0 : Index + 1);
+	const int32 PrevIndex = (bClosedLoop && Index == 0 ? NumPoints - 1 : Index - 1);
+	const int32 NextIndex = (bClosedLoop && Index + 1 > NumPoints ? 0 : Index + 1);
 
-	bool bHasPrevIndex = (PrevIndex >= 0 && PrevIndex < NumPoints);
-	bool bHasNextIndex = (NextIndex >= 0 && NextIndex < NumPoints);
+	const bool bHasPrevIndex = (PrevIndex >= 0 && PrevIndex < NumPoints);
+	const bool bHasNextIndex = (NextIndex >= 0 && NextIndex < NumPoints);
 
 	Modify();
 
@@ -78,8 +76,8 @@ void UMetaSplineMetadata::AddPoint(float InputKey)
 
 	Modify();
 
-	const int Index = NumPoints - 1;
-	float NewInputKey = static_cast<float>(Index + 1);
+	const int32 Index = NumPoints - 1;
+	const float NewInputKey = static_cast<float>(Index + 1);
 
 	TransformCurves([Index, NewInputKey](auto& Curve)
 	{
@@ -147,9 +145,10 @@ void UMetaSplineMetadata::CopyPoint(const USplineMetadata* FromSplineMetadata, i
 		TransformCurves([FromIndex, ToIndex, FromMetadata](auto& Curve)
 		{
 			auto& Points = Curve.Value.Points;
-			
-			using TCurveType = typename TDecay<decltype(Curve.Value)>::Type;
-			Points[ToIndex].OutVal = FromMetadata->FindCurve<TCurveType>(Curve.Key)->Points[FromIndex].OutVal;
+
+			using TUnderlyingType = TCurveUnderlyingType<decltype(Curve.Value)>::Type;
+
+			Points[ToIndex].OutVal = FromMetadata->FindCurve<TUnderlyingType>(Curve.Key)->Points[FromIndex].OutVal;
 		});
 	}
 }
@@ -186,9 +185,7 @@ void UMetaSplineMetadata::Fixup(int32 InNumPoints, USplineComponent* SplineComp)
 		{
 			const float InVal = Points.Num() > 0 ? Points[Points.Num() - 1].InVal + 1.0f : 0.0f;
 
-			using TPointsArray = typename TDecay<decltype(Points)>::Type;
-			using TPoint = typename TPointsArray::ElementType;
-			using TUnderlyingType = typename TCurvePointUnderlyingType<TPoint>::Type;
+			using TUnderlyingType = TCurveUnderlyingType<decltype(Curve.Value)>::Type;
 
 			const FProperty* Property = MetaClass->FindPropertyByName(Curve.Key);
 			Points.Add({ InVal, *Property->ContainerPtrToValuePtr<TUnderlyingType>(MetaClass->GetDefaultObject()) });
@@ -207,15 +204,20 @@ void UMetaSplineMetadata::Fixup(int32 InNumPoints, USplineComponent* SplineComp)
 	NumPoints = InNumPoints;
 }
 
-#pragma optimize("", off)
+template<typename T>
+struct FAddCurve
+{
+	static void Execute(UMetaSplineMetadata& InOutMetadata, const FProperty* InProperty)
+	{
+		InOutMetadata.AddCurve<T>(InOutMetadata.FindCurveMapForType<T>(), InProperty);
+	}
+};
+
 void UMetaSplineMetadata::UpdateMetadataClass(UClass* InClass)
 {
+	// #TODO: More sophisticated cleanup that only updates relevant properties instead of resetting everything.
 	FloatCurves.Empty();
 	VectorCurves.Empty();
-
-	/*TArray<FName> CurvesToRemove;
-	FloatCurves.GetKeys(CurvesToRemove);
-	VectorCurves.GetKeys(CurvesToRemove);*/
 
 	MetaClass = InClass;
 
@@ -225,23 +227,6 @@ void UMetaSplineMetadata::UpdateMetadataClass(UClass* InClass)
 	for (TFieldIterator<FProperty> It(MetaClass); It; ++It)
 	{
 		FProperty* Property = *It;
-
-		const FName Type = FName(Property->GetCPPType());
-		if (Type == TEXT("float"))
-			AddCurve<float>(FloatCurves, Property);
-		else if (Type == TEXT("FVector"))
-			AddCurve<FVector>(VectorCurves, Property);
-		/*else if (Type == TEXT("FVector2D"))
-			Curves.Add(Property->GetFName(), FInterpCurveDesc{ EInterpCurveType::Vector2D });
-		else if (Type == TEXT("FLinearColor"))
-			Curves.Add(Property->GetFName(), FInterpCurveDesc{ EInterpCurveType::LinearColor });
-		else if (Type == TEXT("FQuat"))
-			Curves.Add(Property->GetFName(), FInterpCurveDesc{ EInterpCurveType::Quat });
-		else if (Type == TEXT("FRotator"))
-			Curves.Add(Property->GetFName(), FInterpCurveDesc{ EInterpCurveType::Quat });
-		else if (Property->GetOwnerClass())
-			Curves.Add(Property->GetFName(), FInterpCurveDesc{ EInterpCurveType::Object });*/
+		FMetaSplineTemplateHelpers::ExecuteOnProperty<FAddCurve>(Property, *this, Property);
 	}
-	
 }
-#pragma optimize("", on)

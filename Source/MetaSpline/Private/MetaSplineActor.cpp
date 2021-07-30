@@ -1,8 +1,7 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright(c) 2021 Viktor Pramberg
 #include "MetaSplineActor.h"
 #include "MetaSplineComponent.h"
 
-// Sets default values
 AMetaSplineActor::AMetaSplineActor()
 {
 	PrimaryActorTick.bCanEverTick = false;

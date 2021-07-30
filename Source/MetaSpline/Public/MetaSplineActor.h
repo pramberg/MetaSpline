@@ -1,5 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
+// Copyright(c) 2021 Viktor Pramberg
 #pragma once
 
 #include "CoreMinimal.h"
@@ -11,8 +10,7 @@ class METASPLINE_API AMetaSplineActor : public AActor
 {
 	GENERATED_BODY()
 	
-public:	
-	// Sets default values for this actor's properties
+public:
 	AMetaSplineActor();
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)

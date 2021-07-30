@@ -1,18 +1,15 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
+// Copyright(c) 2021 Viktor Pramberg
 #include "MetaSplineMetadataDetails.h"
 #include "MetaSplineMetadata.h"
-#include <DetailLayoutBuilder.h>
-#include <Widgets/Input/SNumericEntryBox.h>
-#include <Widgets/Text/STextBlock.h>
-#include <IDetailGroup.h>
-#include <DetailWidgetRow.h>
-#include <UMGEditor/Public/Components/DetailsView.h>
-#include <UMGEditor/Public/Components/SinglePropertyView.h>
-#include <PropertyEditorModule.h>
-#include <ISinglePropertyView.h>
 #include "MetaSplineComponent.h"
+#include "MetaSplineTemplateHelpers.h"
+
+#include <PropertyEditorModule.h>
+#include <DetailLayoutBuilder.h>
+#include <DetailWidgetRow.h>
+#include <IDetailGroup.h>
+
+#include <Widgets/Text/STextBlock.h>
 #include <Widgets/Layout/SBorder.h>
 
 #define LOCTEXT_NAMESPACE "MetaSplineMetadataDetails"
@@ -32,26 +29,15 @@ FText FMetaSplineMetadataDetails::GetDisplayName() const
 	return LOCTEXT("DisplayName", "Metadata");
 }
 
-template<class T>
-bool UpdateMultipleValue(TOptional<T>& CurrentValue, T InValue)
-{
-	if (!CurrentValue.IsSet())
-	{
-		CurrentValue = InValue;
-	}
-	else if (CurrentValue.IsSet() && CurrentValue.GetValue() != InValue)
-	{
-		CurrentValue.Reset();
-		return false;
-	}
-
-	return true;
-}
-
 void FMetaSplineMetadataDetails::Update(USplineComponent* InSplineComponent, const TSet<int32>& InSelectedKeys)
 {
 	SplineComp = InSplineComponent;
 	SelectedKeys = InSelectedKeys;
+
+	if (!InSplineComponent)
+	{
+		return;
+	}
 
 	if (UMetaSplineComponent* MetaSpline = Cast<UMetaSplineComponent>(InSplineComponent))
 	{
@@ -75,31 +61,21 @@ void FMetaSplineMetadataDetails::Update(USplineComponent* InSplineComponent, con
 		DetailsView->SetObjects(MetaClassInstances);
 	}
 
-	if (InSplineComponent)
+	if (UMetaSplineMetadata* Metadata = Cast<UMetaSplineMetadata>(InSplineComponent->GetSplinePointsMetadata()))
 	{
-		if (UMetaSplineMetadata* Metadata = Cast<UMetaSplineMetadata>(InSplineComponent->GetSplinePointsMetadata()))
+		Metadata->TransformCurves([this, &InSelectedKeys](auto& Curve)
 		{
-			Metadata->TransformCurves([this, &InSelectedKeys](auto& Curve)
+			const auto& Points = Curve.Value.Points;
+
+			TArray<UObject*>::TIterator It = MetaClassInstances.CreateIterator();
+			const FProperty* Property = MetaClass->FindPropertyByName(Curve.Key);
+			for (int32 Index : InSelectedKeys)
 			{
-				auto& Points = Curve.Value.Points;
-
-				using TPointsArray = typename TDecay<decltype(Points)>::Type;
-				using TPoint = typename TPointsArray::ElementType;
-				using TUnderlyingType = typename TCurvePointUnderlyingType<TPoint>::Type;
-
-				TOptional<TUnderlyingType> Optional;
-				bool bUpdateValue = true;
-
-				TArray<UObject*>::TIterator It = MetaClassInstances.CreateIterator();
-				FProperty* Property = MetaClass->FindPropertyByName(Curve.Key);
-				for (int32 Index : InSelectedKeys)
-				{
-					*Property->ContainerPtrToValuePtr<TUnderlyingType>(*It) = Points[Index].OutVal;
-					++It;
-				}
-			});
-			
-		}
+				using TUnderlyingType = TCurveUnderlyingType<decltype(Curve.Value)>::Type;
+				*Property->ContainerPtrToValuePtr<TUnderlyingType>(*It) = Points[Index].OutVal;
+				++It;
+			}
+		});
 	}
 }
 
@@ -135,7 +111,7 @@ void FMetaSplineMetadataDetails::GenerateChildContent(IDetailGroup& InGroup)
 	InGroup.AddWidgetRow()
 		.Visibility(VisibilityAttr)
 		[
-			SAssignNew(RootWidget, SBox)
+			SNew(SBox)
 			.Padding(FMargin(0.0f, 12.0f, 0.0f, 12.0f))
 			.RenderTransform(FSlateRenderTransform(FVector2D(-12.0f, 0.0f))) // In 4.26.2 there is a weird little invisible (but not collapsed) arrow that indents the widget too much, so unindent a little bit here.
 			[
@@ -155,6 +131,7 @@ void FMetaSplineMetadataDetails::GenerateChildContent(IDetailGroup& InGroup)
 void FMetaSplineMetadataDetails::AddReferencedObjects(FReferenceCollector& Collector)
 {
 	Collector.AddReferencedObjects(MetaClassInstances);
+	Collector.AddReferencedObject(SplineComp);
 }
 
 class UMetaSplineMetadata* FMetaSplineMetadataDetails::GetMetadata() const
@@ -162,44 +139,46 @@ class UMetaSplineMetadata* FMetaSplineMetadataDetails::GetMetadata() const
 	return SplineComp ? Cast<UMetaSplineMetadata>(SplineComp->GetSplinePointsMetadata()) : nullptr;
 }
 
-template<typename TValue, typename TCurve>
-void SetValues(FMetaSplineMetadataDetails& Details, UMetaSplineMetadata& Metadata, const FPropertyChangedEvent& InProperty)
+// Wrapper struct that can be passed to FMetaSplineTemplateHelpers::ExecuteOnProperty, that updates the FInterpCurve for
+// a modified property.
+template<typename T>
+struct FUpdateMetadata
 {
-	auto* Curve = Metadata.FindCurve<TCurve>(InProperty.MemberProperty->GetFName());
-	if (!Curve)
+	static void Execute(FMetaSplineMetadataDetails& InOutDetails, UMetaSplineMetadata& InOutMetadata, const FPropertyChangedEvent& InProperty)
 	{
-		UE_LOG(LogTemp, Error, TEXT("Something has gone horribly wrong :pepehands:"));
-		return;
-	}
+		auto* Curve = InOutMetadata.FindCurve<T>(InProperty.MemberProperty->GetFName());
+		if (!Curve)
+		{
+			// #TODO: Make sure this doesn't happen...
+			UE_LOG(LogTemp, Error, TEXT("Couldn't find curve to modify. Please refresh the metadata class"));
+			return;
+		}
 
-	Details.SplineComp->GetSplinePointsMetadata()->Modify();
-	TArray<UObject*>::TConstIterator It = Details.GetMetaClassInstances()->CreateConstIterator();
-	for (int32 Index : Details.SelectedKeys)
-	{
-		Curve->Points[Index].OutVal = *InProperty.MemberProperty->ContainerPtrToValuePtr<TValue>(*It);
-		++It;
-	}
+		USplineComponent* Spline = InOutDetails.SplineComp;
+		const TSet<int32>& SelectedKeys = InOutDetails.SelectedKeys;
 
-	Details.SplineComp->UpdateSpline();
-	Details.SplineComp->bSplineHasBeenEdited = true;
-	Details.Update(Details.SplineComp, Details.SelectedKeys);
-}
+		Spline->GetSplinePointsMetadata()->Modify();
+
+		TArray<UObject*>::TConstIterator It = InOutDetails.GetMetaClassInstances()->CreateConstIterator();
+		for (int32 Index : SelectedKeys)
+		{
+			Curve->Points[Index].OutVal = *InProperty.MemberProperty->ContainerPtrToValuePtr<T>(*It);
+			++It;
+		}
+
+		Spline->UpdateSpline();
+		Spline->bSplineHasBeenEdited = true;
+
+		InOutDetails.Update(Spline, SelectedKeys);
+	}
+};
 
 void FMetaSplineMetadataDetails::OnFinishedChangingProperties(const FPropertyChangedEvent& InProperty)
 {
-	UE_LOG(LogTemp, Display, TEXT("Changed Property: %s"), *InProperty.GetPropertyName().ToString());
-	
 	if (!GetMetadata())
 		return;
 	
-	const FName Type = FName(InProperty.MemberProperty->GetCPPType());
-
-	auto& Metadata = *GetMetadata();
-	if (Type == TEXT("float"))
-		SetValues<float, FInterpCurveFloat>(*this, Metadata, InProperty);
-	else if (Type == TEXT("FVector"))
-		SetValues<FVector, FInterpCurveVector>(*this, Metadata, InProperty);
-	//GetMetadata()->OnMetadataChanged(InProperty);
+	FMetaSplineTemplateHelpers::ExecuteOnProperty<FUpdateMetadata>(InProperty.MemberProperty, *this, *GetMetadata(), InProperty);
 }
 
 #undef LOCTEXT_NAMESPACE

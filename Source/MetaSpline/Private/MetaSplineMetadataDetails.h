@@ -1,5 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
+// Copyright(c) 2021 Viktor Pramberg
 #pragma once
 
 #include "CoreMinimal.h"
@@ -8,9 +7,6 @@
 #include <UObject/StrongObjectPtr.h>
 #include "MetaSplineMetadataDetails.generated.h"
 
-/**
- * 
- */
 UCLASS()
 class UMetaSplineMetadataDetailsFactory : public USplineMetadataDetailsFactoryBase
 {
@@ -48,7 +44,6 @@ private:
 private:
 
 	TSharedPtr<class IDetailsView> DetailsView = nullptr;
-	TSharedPtr<class SWidget> RootWidget = nullptr;
 
 	TSubclassOf<UObject> MetaClass;
 

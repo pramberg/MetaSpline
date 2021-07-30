@@ -1,27 +1,22 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
+// Copyright(c) 2021 Viktor Pramberg
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Components/SplineComponent.h"
 #include <UObject/UnrealType.h>
+#include <utility>
 #include "MetaSplineMetadata.generated.h"
-
-template<typename T>
-constexpr bool SupportsToString = false;
-
-template<>
-constexpr bool SupportsToString<FVector> = true;
-
-// Finds the type T of a FInterpCurvePoint<T>
-template<typename T> struct TCurvePointUnderlyingType { using Type = void; };
-template<typename T> struct TCurvePointUnderlyingType<FInterpCurvePoint<T>> { using Type = T; };
 
 template<typename T> struct TCurveUnderlyingType { using Type = void; };
 template<typename T> struct TCurveUnderlyingType<FInterpCurve<T>> { using Type = T; };
+template<> struct TCurveUnderlyingType<FInterpCurveFloat> { using Type = float; };
+template<> struct TCurveUnderlyingType<FInterpCurveVector> { using Type = FVector; };
+template<> struct TCurveUnderlyingType<FInterpCurveQuat> { using Type = FQuat; };
+template<> struct TCurveUnderlyingType<FInterpCurveLinearColor> { using Type = FLinearColor; };
+template<> struct TCurveUnderlyingType<FInterpCurveVector2D> { using Type = FVector2D; };
 
 /**
- *
+ * Holds the actual curves that are generated from the meta class.
  */
 UCLASS()
 class UMetaSplineMetadata : public USplineMetadata
@@ -43,39 +38,33 @@ public:
 	bool HasValidMetadataClass() const { return MetaClass ? true : false; }
 
 	template<typename T>
-	const T* FindCurve(const FName InName) const
+	const FInterpCurve<T>* FindCurve(const FName InName) const
 	{
-		if constexpr (TIsSame<T, FInterpCurveFloat>::Value)
+		if constexpr (TIsSame<T, float>::Value)
 			return FloatCurves.Find(InName);
-		else if constexpr (TIsSame<T, FInterpCurveVector>::Value)
+		else if constexpr (TIsSame<T, FVector>::Value)
 			return VectorCurves.Find(InName);
 		return nullptr;
 	}
 
 	template<typename T>
-	T* FindCurve(const FName InName)
+	FInterpCurve<T>* FindCurve(const FName InName)
 	{
-		if constexpr (TIsSame<T, FInterpCurveFloat>::Value)
-			return FloatCurves.Find(InName);
-		else if constexpr (TIsSame<T, FInterpCurveVector>::Value)
-			return VectorCurves.Find(InName);
-		return nullptr;
+		return const_cast<FInterpCurve<T>*>(const_cast<const UMetaSplineMetadata*>(this)->FindCurve<T>(InName));
 	}
 
 private:
 	template<typename T, typename TMapType>
-	void AddCurve(TMap<FName, TMapType>& Map, FProperty* InProperty)
+	void AddCurve(TMap<FName, TMapType>& Map, const FProperty* InProperty)
 	{
-		using TPointsArray = typename TDecay<decltype(Map)>::Type;
-		using TPoint = typename TPointsArray::ElementType;
-		using TUnderlyingType = typename TCurvePointUnderlyingType<TPoint>::Type;
+		using TUnderlyingType = typename TCurveUnderlyingType<TMapType>::Type;
 
 		InitializeCurve<T>(Map.Add(InProperty->GetFName(), {}), InProperty);
 		NumCurves++;
 	}
 
 	template<typename T>
-	void InitializeCurve(FInterpCurve<T>& Curve, FProperty* InProperty)
+	void InitializeCurve(FInterpCurve<T>& Curve, const FProperty* InProperty)
 	{
 		T* Value = InProperty->ContainerPtrToValuePtr<T>(MetaClass->GetDefaultObject());
 
@@ -151,7 +140,14 @@ private:
 		});
 	}
 
-	
+	template<typename T>
+	auto& FindCurveMapForType()
+	{
+		if constexpr (TIsSame<T, float>::Value)
+			return FloatCurves;
+		if constexpr (TIsSame<T, FVector>::Value)
+			return VectorCurves;
+	}
 
 private:
 	UPROPERTY(EditAnywhere, Category = "Meta")
@@ -166,8 +162,6 @@ private:
 	int32 NumCurves = 0;
 	int32 NumPoints = 0;
 
-	/*UPROPERTY(EditAnywhere, Category = "Water")
-	TMap<FName, FInterpCurveVector> VectorCurves;*/
-
 	friend class FMetaSplineMetadataDetails;
+	template<typename T> friend struct FAddCurve;
 };
