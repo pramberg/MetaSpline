@@ -4,16 +4,24 @@
 #include "CoreMinimal.h"
 #include "Components/SplineComponent.h"
 #include <UObject/UnrealType.h>
-#include <utility>
 #include "MetaSplineMetadata.generated.h"
 
-template<typename T> struct TCurveUnderlyingType { using Type = void; };
-template<typename T> struct TCurveUnderlyingType<FInterpCurve<T>> { using Type = T; };
-template<> struct TCurveUnderlyingType<FInterpCurveFloat> { using Type = float; };
-template<> struct TCurveUnderlyingType<FInterpCurveVector> { using Type = FVector; };
-template<> struct TCurveUnderlyingType<FInterpCurveQuat> { using Type = FQuat; };
-template<> struct TCurveUnderlyingType<FInterpCurveLinearColor> { using Type = FLinearColor; };
-template<> struct TCurveUnderlyingType<FInterpCurveVector2D> { using Type = FVector2D; };
+namespace CurveUnderlyingType_Private
+{
+	template<typename T> struct TCurveUnderlyingTypeImpl { using Type = void; };
+	template<typename T> struct TCurveUnderlyingTypeImpl<FInterpCurve<T>> { using Type = T; };
+	template<> struct TCurveUnderlyingTypeImpl<FInterpCurveFloat> { using Type = float; };
+	template<> struct TCurveUnderlyingTypeImpl<FInterpCurveVector> { using Type = FVector; };
+	template<> struct TCurveUnderlyingTypeImpl<FInterpCurveQuat> { using Type = FQuat; };
+	template<> struct TCurveUnderlyingTypeImpl<FInterpCurveLinearColor> { using Type = FLinearColor; };
+	template<> struct TCurveUnderlyingTypeImpl<FInterpCurveVector2D> { using Type = FVector2D; };
+}
+
+template<typename T>
+struct TCurveUnderlyingType
+{ 
+	using Type = typename CurveUnderlyingType_Private::TCurveUnderlyingTypeImpl<typename TDecay<T>::Type>::Type;
+};
 
 /**
  * Holds the actual curves that are generated from the meta class.
@@ -37,15 +45,9 @@ public:
 	void UpdateMetadataClass(UClass* InClass);
 	bool HasValidMetadataClass() const { return MetaClass ? true : false; }
 
-	template<typename T>
-	const FInterpCurve<T>* FindCurve(const FName InName) const
-	{
-		if constexpr (TIsSame<T, float>::Value)
-			return FloatCurves.Find(InName);
-		else if constexpr (TIsSame<T, FVector>::Value)
-			return VectorCurves.Find(InName);
-		return nullptr;
-	}
+	template<typename T> const FInterpCurve<T>* FindCurve(const FName InName) const { return nullptr; }
+	template<> const FInterpCurve<float>* FindCurve<float>(const FName InName) const { return FloatCurves.Find(InName); }
+	template<> const FInterpCurve<FVector>* FindCurve<FVector>(const FName InName) const { return VectorCurves.Find(InName); }
 
 	template<typename T>
 	FInterpCurve<T>* FindCurve(const FName InName)
@@ -57,21 +59,15 @@ private:
 	template<typename T, typename TMapType>
 	void AddCurve(TMap<FName, TMapType>& Map, const FProperty* InProperty)
 	{
-		using TUnderlyingType = typename TCurveUnderlyingType<TMapType>::Type;
+		auto& Curve = Map.Add(InProperty->GetFName(), {});
 
-		InitializeCurve<T>(Map.Add(InProperty->GetFName(), {}), InProperty);
-		NumCurves++;
-	}
-
-	template<typename T>
-	void InitializeCurve(FInterpCurve<T>& Curve, const FProperty* InProperty)
-	{
-		T* Value = InProperty->ContainerPtrToValuePtr<T>(MetaClass->GetDefaultObject());
-
+		const T& Value = *InProperty->ContainerPtrToValuePtr<T>(MetaClass->GetDefaultObject());
 		for (int32 i = 0; i < NumPoints; i++)
 		{
-			Curve.AddPoint(i, *Value);
+			Curve.AddPoint(i, Value);
 		}
+
+		NumCurves++;
 	}
 
 	template<typename TMapType, typename F>
@@ -79,39 +75,30 @@ private:
 	{
 		for (auto& Curve : Map)
 		{
-			Function(Curve);
+			if constexpr (TIsInvocable<F, decltype(Curve.Value)>::Value)
+			{
+				Function(Curve.Value);
+			}
+			else if constexpr (TIsInvocable<F, decltype(Curve)>::Value)
+			{
+				Function(Curve);
+			}
+			else if constexpr (TIsInvocable<F, decltype(Curve.Key), decltype(Curve.Value)>::Value)
+			{
+				Function(Curve.Key, Curve.Value);
+			}
+			else
+			{
+				static_assert(false, "Invalid function passed to UMetaSplineMetadata::TransformCurveMap()");
+			}
 		}
 	}
 
 	template<typename F>
 	void TransformCurves(F&& Function)
 	{
-		TransformCurveMap(FloatCurves, Function);
-		TransformCurveMap(VectorCurves, Function);
-	}
-
-	template<typename F>
-	void TransformPoints(F&& Function)
-	{
-		TransformCurves([Function](auto& Curve)
-		{
-			for (auto& Point : Curve.Value.Points)
-			{
-				Function(Point);
-			}
-		});
-	}
-
-	template<typename F>
-	void TransformPointsIndex(F&& Function)
-	{
-		TransformCurves([Function](auto& Curve)
-		{
-			for (int32 i = 0; i < Curve.Value.Points.Num(); i++)
-			{
-				Function(Curve.Value.Points[i], i);
-			}
-		});
+		TransformCurveMap(FloatCurves, Forward<F>(Function));
+		TransformCurveMap(VectorCurves, Forward<F>(Function));
 	}
 
 	template<typename F>
@@ -119,34 +106,37 @@ private:
 	{
 		TransformCurves([=](auto& Curve)
 		{
-			auto& Points = Curve.Value.Points;
+			auto& Points = Curve.Points;
 			for (int32 i = StartIndex; i < Points.Num(); i++)
 			{
-				Function(Points[i]);
+				if constexpr (TIsInvocable<F, decltype(Points[i])>::Value)
+				{
+					Function(Points[i]);
+				}
+				else if constexpr (TIsInvocable<F, decltype(Points[i]), int32>::Value)
+				{
+					Function(Points[i], i);
+				}
+				else
+				{
+					static_assert(false, "Invalid function passed to UMetaSplineMetadata::TransformPoints()");
+				}
 			}
 		});
 	}
 
 	template<typename F>
-	void TransformPointsIndex(int32 StartIndex, F&& Function)
+	void TransformPoints(F&& Function)
 	{
-		TransformCurves([=](auto& Curve)
-		{
-			auto& Points = Curve.Value.Points;
-			for (int32 i = StartIndex; i < Points.Num(); i++)
-			{
-				Function(Points[i], i);
-			}
-		});
+		TransformPoints(0, Forward<F>(Function));
 	}
 
 	template<typename T>
 	auto& FindCurveMapForType()
 	{
-		if constexpr (TIsSame<T, float>::Value)
-			return FloatCurves;
-		if constexpr (TIsSame<T, FVector>::Value)
-			return VectorCurves;
+		if constexpr (TIsSame<T, float>::Value) { return FloatCurves; }
+		else if constexpr (TIsSame<T, FVector>::Value) { return VectorCurves; }
+		else { static_assert(false, "Curve type not supported!"); }
 	}
 
 private:

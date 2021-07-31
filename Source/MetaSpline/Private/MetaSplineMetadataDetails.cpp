@@ -63,15 +63,15 @@ void FMetaSplineMetadataDetails::Update(USplineComponent* InSplineComponent, con
 
 	if (UMetaSplineMetadata* Metadata = Cast<UMetaSplineMetadata>(InSplineComponent->GetSplinePointsMetadata()))
 	{
-		Metadata->TransformCurves([this, &InSelectedKeys](auto& Curve)
+		Metadata->TransformCurves([this, &InSelectedKeys](FName Key, auto& Curve)
 		{
-			const auto& Points = Curve.Value.Points;
+			const auto& Points = Curve.Points;
 
 			TArray<UObject*>::TIterator It = MetaClassInstances.CreateIterator();
-			const FProperty* Property = MetaClass->FindPropertyByName(Curve.Key);
+			const FProperty* Property = MetaClass->FindPropertyByName(Key);
 			for (int32 Index : InSelectedKeys)
 			{
-				using TUnderlyingType = TCurveUnderlyingType<decltype(Curve.Value)>::Type;
+				using TUnderlyingType = TCurveUnderlyingType<decltype(Curve)>::Type;
 				*Property->ContainerPtrToValuePtr<TUnderlyingType>(*It) = Points[Index].OutVal;
 				++It;
 			}

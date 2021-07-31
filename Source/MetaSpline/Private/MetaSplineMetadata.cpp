@@ -25,7 +25,7 @@ void UMetaSplineMetadata::InsertPoint(int32 Index, float t, bool bClosedLoop)
 
 		TransformCurves([=](auto& Curve)
 		{
-			auto& Points = Curve.Value.Points;
+			auto& Points = Curve.Points;
 			auto NewValue = Points[Index].OutVal;
 
 			if (bHasPrevIndex)
@@ -60,7 +60,7 @@ void UMetaSplineMetadata::UpdatePoint(int32 Index, float t, bool bClosedLoop)
 	{
 		TransformCurves([=](auto& Curve)
 		{
-			auto& Points = Curve.Value.Points;
+			auto& Points = Curve.Points;
 			const auto& PrevVal = Points[PrevIndex].OutVal;
 			const auto& NextVal = Points[NextIndex].OutVal;
 
@@ -81,7 +81,7 @@ void UMetaSplineMetadata::AddPoint(float InputKey)
 
 	TransformCurves([Index, NewInputKey](auto& Curve)
 	{
-		Curve.Value.Points.Emplace(NewInputKey, Curve.Value.Points[Index].OutVal);
+		Curve.Points.Emplace(NewInputKey, Curve.Points[Index].OutVal);
 	});
 
 	NumPoints++;
@@ -95,7 +95,7 @@ void UMetaSplineMetadata::RemovePoint(int32 Index)
 
 	TransformCurves([Index](auto& Curve)
 	{
-		Curve.Value.Points.RemoveAt(Index);
+		Curve.Points.RemoveAt(Index);
 	});
 
 	TransformPoints(Index, [](auto& Point)
@@ -114,7 +114,7 @@ void UMetaSplineMetadata::DuplicatePoint(int32 Index)
 
 	TransformCurves([Index](auto& Curve)
 	{
-		Curve.Value.Points.Insert({ Curve.Value.Points[Index] }, Index);
+		Curve.Points.Insert({ Curve.Points[Index] }, Index);
 	});
 
 	TransformPoints(Index + 1, [](auto& Point)
@@ -142,13 +142,12 @@ void UMetaSplineMetadata::CopyPoint(const USplineMetadata* FromSplineMetadata, i
 
 		Modify();
 
-		TransformCurves([FromIndex, ToIndex, FromMetadata](auto& Curve)
+		TransformCurves([FromIndex, ToIndex, FromMetadata](FName Key, auto& Curve)
 		{
-			auto& Points = Curve.Value.Points;
+			auto& Points = Curve.Points;
 
-			using TUnderlyingType = TCurveUnderlyingType<decltype(Curve.Value)>::Type;
-
-			Points[ToIndex].OutVal = FromMetadata->FindCurve<TUnderlyingType>(Curve.Key)->Points[FromIndex].OutVal;
+			using TUnderlyingType = TCurveUnderlyingType<decltype(Curve)>::Type;
+			Points[ToIndex].OutVal = FromMetadata->FindCurve<TUnderlyingType>(Key)->Points[FromIndex].OutVal;
 		});
 	}
 }
@@ -160,7 +159,7 @@ void UMetaSplineMetadata::Reset(int32 InNumPoints)
 
 	TransformCurves([this](auto& Curve)
 	{
-		Curve.Value.Points.Reset(NumPoints);
+		Curve.Points.Reset(NumPoints);
 	});
 }
 
@@ -169,14 +168,14 @@ void UMetaSplineMetadata::Fixup(int32 InNumPoints, USplineComponent* SplineComp)
 	const UMetaSplineComponent* MetaSpline = Cast<UMetaSplineComponent>(SplineComp);
 	MetaClass = MetaSpline ? MetaSpline->MetadataClass : nullptr;
 
-	TransformPointsIndex([](auto& Point, int32 Index)
+	TransformPoints([](auto& Point, int32 Index)
 	{
 		Point.InVal = static_cast<float>(Index);
 	});
 
-	TransformCurves([&](auto& Curve)
+	TransformCurves([&](FName Key, auto& Curve)
 	{
-		auto& Points = Curve.Value.Points;
+		auto& Points = Curve.Points;
 
 		if (!MetaClass)
 			return;
@@ -185,16 +184,16 @@ void UMetaSplineMetadata::Fixup(int32 InNumPoints, USplineComponent* SplineComp)
 		{
 			const float InVal = Points.Num() > 0 ? Points[Points.Num() - 1].InVal + 1.0f : 0.0f;
 
-			using TUnderlyingType = TCurveUnderlyingType<decltype(Curve.Value)>::Type;
+			using TUnderlyingType = TCurveUnderlyingType<decltype(Curve)>::Type;
 
-			const FProperty* Property = MetaClass->FindPropertyByName(Curve.Key);
+			const FProperty* Property = MetaClass->FindPropertyByName(Key);
 			Points.Add({ InVal, *Property->ContainerPtrToValuePtr<TUnderlyingType>(MetaClass->GetDefaultObject()) });
 		}
 	});
 
 	TransformCurves([=](auto& Curve)
 	{
-		auto& Points = Curve.Value.Points;
+		auto& Points = Curve.Points;
 		if (Points.Num() > InNumPoints)
 		{
 			Points.RemoveAt(InNumPoints, Points.Num() - InNumPoints);
