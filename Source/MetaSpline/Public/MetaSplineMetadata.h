@@ -45,35 +45,14 @@ public:
 	void UpdateMetadataClass(UClass* InClass);
 	bool HasValidMetadataClass() const { return MetaClass ? true : false; }
 
-	template<typename T> const FInterpCurve<T>* FindCurve(const FName InName) const { return nullptr; }
-	template<> const FInterpCurve<float>* FindCurve<float>(const FName InName) const { return FloatCurves.Find(InName); }
-	template<> const FInterpCurve<FVector>* FindCurve<FVector>(const FName InName) const { return VectorCurves.Find(InName); }
-
-	template<typename T>
-	FInterpCurve<T>* FindCurve(const FName InName)
-	{
-		return const_cast<FInterpCurve<T>*>(const_cast<const UMetaSplineMetadata*>(this)->FindCurve<T>(InName));
-	}
+	template<typename T> decltype(auto) FindCurve(const FName InName) const { return FindCurveMapForType<T>().Find(InName); }
+	template<typename T> decltype(auto) FindCurve(const FName InName) { return FindCurveMapForType<T>().Find(InName); }
 
 private:
-	template<typename T, typename TMapType>
-	void AddCurve(TMap<FName, TMapType>& Map, const FProperty* InProperty)
+	template<typename T, typename F>
+	void TransformCurveMap(F&& Function)
 	{
-		auto& Curve = Map.Add(InProperty->GetFName(), {});
-
-		const T& Value = *InProperty->ContainerPtrToValuePtr<T>(MetaClass->GetDefaultObject());
-		for (int32 i = 0; i < NumPoints; i++)
-		{
-			Curve.AddPoint(i, Value);
-		}
-
-		NumCurves++;
-	}
-
-	template<typename TMapType, typename F>
-	void TransformCurveMap(TMap<FName, TMapType>& Map, F&& Function)
-	{
-		for (auto& Curve : Map)
+		for (auto& Curve : FindCurveMapForType<T>())
 		{
 			if constexpr (TIsInvocable<F, decltype(Curve.Value)>::Value)
 			{
@@ -97,8 +76,8 @@ private:
 	template<typename F>
 	void TransformCurves(F&& Function)
 	{
-		TransformCurveMap(FloatCurves, Forward<F>(Function));
-		TransformCurveMap(VectorCurves, Forward<F>(Function));
+		TransformCurveMap<float>(Forward<F>(Function));
+		TransformCurveMap<FVector>(Forward<F>(Function));
 	}
 
 	template<typename F>
@@ -131,13 +110,15 @@ private:
 		TransformPoints(0, Forward<F>(Function));
 	}
 
-	template<typename T>
-	auto& FindCurveMapForType()
+	template<typename T, typename TSelf>
+	static decltype(auto) FindCurveMapForType_Implementation(TSelf* InSelf)
 	{
-		if constexpr (TIsSame<T, float>::Value) { return FloatCurves; }
-		else if constexpr (TIsSame<T, FVector>::Value) { return VectorCurves; }
+		if constexpr (TIsSame<T, float>::Value) { return (InSelf->FloatCurves); }
+		else if constexpr (TIsSame<T, FVector>::Value) { return (InSelf->VectorCurves); }
 		else { static_assert(false, "Curve type not supported!"); }
 	}
+	template<typename T> decltype(auto) FindCurveMapForType() const { return FindCurveMapForType_Implementation<T>(this); }
+	template<typename T> decltype(auto) FindCurveMapForType() { return FindCurveMapForType_Implementation<T>(this); }
 
 private:
 	UPROPERTY(EditAnywhere, Category = "Meta")

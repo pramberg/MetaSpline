@@ -208,7 +208,16 @@ struct FAddCurve
 {
 	static void Execute(UMetaSplineMetadata& InOutMetadata, const FProperty* InProperty)
 	{
-		InOutMetadata.AddCurve<T>(InOutMetadata.FindCurveMapForType<T>(), InProperty);
+		auto& Map = InOutMetadata.FindCurveMapForType<T>();
+		auto& Curve = Map.Add(InProperty->GetFName(), {});
+
+		const T& Value = *InProperty->ContainerPtrToValuePtr<T>(InOutMetadata.MetaClass->GetDefaultObject());
+		for (int32 i = 0; i < InOutMetadata.NumPoints; i++)
+		{
+			Curve.AddPoint(i, Value);
+		}
+
+		InOutMetadata.NumCurves++;
 	}
 };
 
