@@ -19,14 +19,6 @@ public class MetaSpline : ModuleRules
 			{
 				"CoreUObject",
 				"Engine",
-				"Slate",
-				"SlateCore",
-				"DetailCustomizations",
-				"UnrealEd",
-				"EditorStyle",
-				"UMG",
-				"UMGEditor",
-				"PropertyEditor",
 			}
 		);
 	}

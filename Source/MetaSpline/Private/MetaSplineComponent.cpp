@@ -55,6 +55,7 @@ void UMetaSplineComponent::PostLoad()
 	}
 }
 
+#if WITH_EDITOR
 void UMetaSplineComponent::PostEditImport()
 {
 	Super::PostEditImport();
@@ -84,3 +85,4 @@ void UMetaSplineComponent::PostEditChangeChainProperty(FPropertyChangedChainEven
 		Metadata->UpdateMetadataClass(MetadataClass ? MetadataClass.Get() : nullptr);
 	}
 }
+#endif

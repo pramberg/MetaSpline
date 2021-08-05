@@ -3,6 +3,7 @@
 #include "MetaSplineMetadata.h"
 #include "MetaSplineComponent.h"
 #include "MetaSplineTemplateHelpers.h"
+#include "MetaSpline.h"
 
 #include <PropertyEditorModule.h>
 #include <DetailLayoutBuilder.h>
@@ -43,6 +44,7 @@ void FMetaSplineMetadataDetails::Update(USplineComponent* InSplineComponent, con
 	{
 		if (MetaSpline->MetadataClass != MetaClass)
 		{
+			GetMetadata()->UpdateMetadataClass(MetaSpline->MetadataClass);
 			MetaClass = MetaSpline->MetadataClass;
 			MetaClassInstances.Empty();
 		}
@@ -61,7 +63,7 @@ void FMetaSplineMetadataDetails::Update(USplineComponent* InSplineComponent, con
 		DetailsView->SetObjects(MetaClassInstances);
 	}
 
-	if (UMetaSplineMetadata* Metadata = Cast<UMetaSplineMetadata>(InSplineComponent->GetSplinePointsMetadata()))
+	if (UMetaSplineMetadata* Metadata = GetMetadata())
 	{
 		Metadata->TransformCurves([this, &InSelectedKeys](FName Key, auto& Curve)
 		{
@@ -150,7 +152,7 @@ struct FUpdateMetadata
 		if (!Curve)
 		{
 			// #TODO: Make sure this doesn't happen...
-			UE_LOG(LogTemp, Error, TEXT("Couldn't find curve to modify. Please refresh the metadata class"));
+			UE_LOG(LogMetaSpline, Error, TEXT("Couldn't find curve to modify. Please refresh the metadata class"));
 			return;
 		}
 

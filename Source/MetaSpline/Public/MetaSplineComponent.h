@@ -9,7 +9,7 @@
 /**
  * A spline component with a simple interface for adding metadata to spline points.
  */
-UCLASS()
+UCLASS(ClassGroup = Utility, BlueprintType, meta = (BlueprintSpawnableComponent))
 class METASPLINE_API UMetaSplineComponent : public USplineComponent
 {
 	GENERATED_BODY()
@@ -33,9 +33,12 @@ public:
 public:
 	// -- Overrides --
 	virtual void PostLoad() override;
+
+#if WITH_EDITOR
 	virtual void PostEditImport() override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
+#endif
 
 	virtual USplineMetadata* GetSplinePointsMetadata() override { return Metadata; }
 	virtual const USplineMetadata* GetSplinePointsMetadata() const override { return Metadata; }

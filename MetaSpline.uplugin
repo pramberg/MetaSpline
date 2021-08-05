@@ -19,6 +19,11 @@
 			"Name": "MetaSpline",
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "MetaSplineEditor",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
 		}
 	]
 }

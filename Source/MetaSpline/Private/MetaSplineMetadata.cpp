@@ -2,6 +2,7 @@
 #include "MetaSplineMetadata.h"
 #include "MetaSplineComponent.h"
 #include "MetaSplineTemplateHelpers.h"
+#include "MetaSpline.h"
 
 void UMetaSplineMetadata::InsertPoint(int32 Index, float t, bool bClosedLoop)
 {
@@ -136,7 +137,7 @@ void UMetaSplineMetadata::CopyPoint(const USplineMetadata* FromSplineMetadata, i
 
 		if (FromMetadata->MetaClass != MetaClass)
 		{
-			UE_LOG(LogTemp, Error, TEXT("Can't copy point to spline with different meta class."));
+			UE_LOG(LogMetaSpline, Error, TEXT("Can't copy point to spline with different meta class."));
 			return;
 		}
 

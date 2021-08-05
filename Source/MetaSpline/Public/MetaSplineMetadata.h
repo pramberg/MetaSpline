@@ -27,7 +27,7 @@ struct TCurveUnderlyingType
  * Holds the actual curves that are generated from the meta class.
  */
 UCLASS()
-class UMetaSplineMetadata : public USplineMetadata
+class METASPLINE_API UMetaSplineMetadata : public USplineMetadata
 {
 	GENERATED_BODY()
 
