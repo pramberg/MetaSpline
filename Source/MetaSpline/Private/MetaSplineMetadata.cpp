@@ -224,6 +224,11 @@ struct FAddCurve
 
 void UMetaSplineMetadata::UpdateMetadataClass(UClass* InClass)
 {
+	if (MetaClass == InClass)
+	{
+		return;
+	}
+
 	// #TODO: More sophisticated cleanup that only updates relevant properties instead of resetting everything.
 	FloatCurves.Empty();
 	VectorCurves.Empty();
