@@ -52,7 +52,7 @@ void FMetaSplineMetadataDetails::Update(USplineComponent* InSplineComponent, con
 		// Make sure the number of instances match the number of selected points
 		while (MetaClassInstances.Num() < InSelectedKeys.Num())
 		{
-			MetaClassInstances.Emplace(MetaClass ? NewObject<UObject>(MetaSpline, *MetaClass) : nullptr);
+			MetaClassInstances.Emplace(MetaClass ? NewObject<UObject>(GetTransientPackage(), *MetaClass) : nullptr);
 		}
 
 		if (MetaClassInstances.Num() > InSelectedKeys.Num())
@@ -133,12 +133,18 @@ void FMetaSplineMetadataDetails::GenerateChildContent(IDetailGroup& InGroup)
 void FMetaSplineMetadataDetails::AddReferencedObjects(FReferenceCollector& Collector)
 {
 	Collector.AddReferencedObjects(MetaClassInstances);
-	Collector.AddReferencedObject(SplineComp);
+
+	MetaClassInstances.RemoveAllSwap([](UObject* Obj) { return Obj == nullptr; });
+}
+
+FString FMetaSplineMetadataDetails::GetReferencerName()
+{
+	return FString::Printf(TEXT("FMetaSplineMetadataDetails(%s)"), MetaClass ? *MetaClass->GetName() : TEXT("None"));
 }
 
 class UMetaSplineMetadata* FMetaSplineMetadataDetails::GetMetadata() const
 {
-	return SplineComp ? Cast<UMetaSplineMetadata>(SplineComp->GetSplinePointsMetadata()) : nullptr;
+	return SplineComp.IsValid() ? Cast<UMetaSplineMetadata>(SplineComp->GetSplinePointsMetadata()) : nullptr;
 }
 
 // Wrapper struct that can be passed to FMetaSplineTemplateHelpers::ExecuteOnProperty, that updates the FInterpCurve for
@@ -156,7 +162,12 @@ struct FUpdateMetadata
 			return;
 		}
 
-		USplineComponent* Spline = InOutDetails.SplineComp;
+		if (!InOutDetails.SplineComp.IsValid())
+		{
+			return;
+		}
+
+		USplineComponent* Spline = InOutDetails.SplineComp.Get();
 		const TSet<int32>& SelectedKeys = InOutDetails.SelectedKeys;
 
 		Spline->GetSplinePointsMetadata()->Modify();

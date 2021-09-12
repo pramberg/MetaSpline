@@ -20,19 +20,19 @@ public:
 class FMetaSplineMetadataDetails : public FGCObject, public ISplineMetadataDetails, public TSharedFromThis<FMetaSplineMetadataDetails>
 {
 public:
-	virtual ~FMetaSplineMetadataDetails() {}
+	virtual ~FMetaSplineMetadataDetails() override {}
 	virtual FName GetName() const override { return FName(TEXT("MetaSplineMetadataDetails")); }
 	virtual FText GetDisplayName() const override;
 	virtual void Update(USplineComponent* InSplineComponent, const TSet<int32>& InSelectedKeys) override;
 	virtual void GenerateChildContent(IDetailGroup& InGroup) override;
 
-	USplineComponent* SplineComp = nullptr;
+	TWeakObjectPtr<USplineComponent> SplineComp = nullptr;
 	TSet<int32> SelectedKeys;
 
 	TArray<UObject*>* GetMetaClassInstances() { return &MetaClassInstances; }
 
-
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+	virtual FString GetReferencerName() const override;
 
 private:
 	EVisibility IsEnabled() const { return (SelectedKeys.Num() > 0) ? EVisibility::Visible : EVisibility::Collapsed; }
