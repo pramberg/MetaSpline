@@ -137,7 +137,7 @@ void FMetaSplineMetadataDetails::AddReferencedObjects(FReferenceCollector& Colle
 	MetaClassInstances.RemoveAllSwap([](UObject* Obj) { return Obj == nullptr; });
 }
 
-FString FMetaSplineMetadataDetails::GetReferencerName()
+FString FMetaSplineMetadataDetails::GetReferencerName() const
 {
 	return FString::Printf(TEXT("FMetaSplineMetadataDetails(%s)"), MetaClass ? *MetaClass->GetName() : TEXT("None"));
 }
