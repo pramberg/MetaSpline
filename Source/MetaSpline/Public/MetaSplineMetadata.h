@@ -134,5 +134,6 @@ private:
 	int32 NumPoints = 0;
 
 	friend class FMetaSplineMetadataDetails;
+	friend class FMetaSplineDebugRenderer;
 	template<typename T> friend struct FAddCurve;
 };

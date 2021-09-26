@@ -167,7 +167,7 @@ void UMetaSplineMetadata::Reset(int32 InNumPoints)
 void UMetaSplineMetadata::Fixup(int32 InNumPoints, USplineComponent* SplineComp)
 {
 	const UMetaSplineComponent* MetaSpline = Cast<UMetaSplineComponent>(SplineComp);
-	MetaClass = MetaSpline ? MetaSpline->MetadataClass : nullptr;
+	UpdateMetadataClass(MetaSpline ? MetaSpline->MetadataClass : nullptr);
 
 	TransformPoints([](auto& Point, int32 Index)
 	{

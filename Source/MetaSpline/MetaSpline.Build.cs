@@ -19,6 +19,9 @@ public class MetaSpline : ModuleRules
 			{
 				"CoreUObject",
 				"Engine",
+				"Slate",
+				"SlateCore",
+				"DeveloperSettings",
 			}
 		);
 	}

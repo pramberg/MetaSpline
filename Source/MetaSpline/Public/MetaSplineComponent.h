@@ -47,6 +47,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Metadata)
 	TSubclassOf<UObject> MetadataClass;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Metadata)
+	bool bDrawDebugMetadata = true;
+
 private:
 	UPROPERTY()
 	class UMetaSplineMetadata* Metadata;
