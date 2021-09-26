@@ -20,22 +20,22 @@ T GetPropertyValueAtKey(const UMetaSplineMetadata* Metadata, float InKey, FName 
 	return T();
 }
 
-float UMetaSplineComponent::GetMetadataFloatAtPoint(FName InProperty, int32 InIndex)
+float UMetaSplineComponent::GetMetadataFloatAtPoint(FName InProperty, int32 InIndex) const
 {
 	return GetMetadataFloatAtKey(InProperty, static_cast<float>(InIndex));
 }
 
-FVector UMetaSplineComponent::GetMetadataVectorAtPoint(FName InProperty, int32 InIndex)
+FVector UMetaSplineComponent::GetMetadataVectorAtPoint(FName InProperty, int32 InIndex) const
 {
 	return GetMetadataVectorAtKey(InProperty, static_cast<float>(InIndex));
 }
 
-float UMetaSplineComponent::GetMetadataFloatAtKey(FName InProperty, float InKey)
+float UMetaSplineComponent::GetMetadataFloatAtKey(FName InProperty, float InKey) const
 {
 	return GetPropertyValueAtKey<float>(Metadata, InKey, InProperty);
 }
 
-FVector UMetaSplineComponent::GetMetadataVectorAtKey(FName InProperty, float InKey)
+FVector UMetaSplineComponent::GetMetadataVectorAtKey(FName InProperty, float InKey) const
 {
 	return GetPropertyValueAtKey<FVector>(Metadata, InKey, InProperty);
 }

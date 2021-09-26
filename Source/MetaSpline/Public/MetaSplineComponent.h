@@ -19,16 +19,16 @@ public:
 
 	// -- New metadata accessors --
 	UFUNCTION(BlueprintCallable, Category = "Spline|Metadata")
-	float GetMetadataFloatAtPoint(FName InProperty, int32 InIndex);
+	float GetMetadataFloatAtPoint(FName InProperty, int32 InIndex) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Spline|Metadata")
-	FVector GetMetadataVectorAtPoint(FName InProperty, int32 InIndex);
+	FVector GetMetadataVectorAtPoint(FName InProperty, int32 InIndex) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Spline|Metadata")
-	float GetMetadataFloatAtKey(FName InProperty, float InKey);
+	float GetMetadataFloatAtKey(FName InProperty, float InKey) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Spline|Metadata")
-	FVector GetMetadataVectorAtKey(FName InProperty, float InKey);
+	FVector GetMetadataVectorAtKey(FName InProperty, float InKey) const;
 
 public:
 	// -- Overrides --
