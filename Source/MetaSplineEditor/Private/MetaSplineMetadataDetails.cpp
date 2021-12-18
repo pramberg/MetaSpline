@@ -12,6 +12,8 @@
 
 #include <Widgets/Text/STextBlock.h>
 #include <Widgets/Layout/SBorder.h>
+#include <ScopedTransaction.h>
+#include <ComponentVisualizer.h>
 
 #define LOCTEXT_NAMESPACE "MetaSplineMetadataDetails"
 
@@ -65,7 +67,11 @@ void FMetaSplineMetadataDetails::Update(USplineComponent* InSplineComponent, con
 
 	if (UMetaSplineMetadata* Metadata = GetMetadata())
 	{
-		Metadata->TransformCurves([this, &InSelectedKeys](FName Key, auto& Curve)
+		const auto& Positions = SplineComp->SplineCurves.Position;
+		const bool bIsLooped = Positions.bIsLooped;
+		const float LoopKey = Positions.LoopKeyOffset + Positions.Points.Last().InVal;
+
+		Metadata->TransformCurves([this, &InSelectedKeys, bIsLooped, LoopKey](FName Key, auto& Curve)
 		{
 			const auto& Points = Curve.Points;
 
@@ -73,10 +79,25 @@ void FMetaSplineMetadataDetails::Update(USplineComponent* InSplineComponent, con
 			const FProperty* Property = MetaClass->FindPropertyByName(Key);
 			for (int32 Index : InSelectedKeys)
 			{
+				if (Index >= Points.Num())
+				{
+					continue;
+				}
 				using TUnderlyingType = TCurveUnderlyingType<decltype(Curve)>::Type;
 				*Property->ContainerPtrToValuePtr<TUnderlyingType>(*It) = Points[Index].OutVal;
 				++It;
 			}
+
+			if (bIsLooped)
+			{
+				Curve.SetLoopKey(LoopKey);
+			}
+			else
+			{
+				Curve.ClearLoopKey();
+			}
+
+			Curve.AutoSetTangents(0.0f, SplineComp->bStationaryEndpoints);
 		});
 	}
 }
@@ -152,9 +173,9 @@ class UMetaSplineMetadata* FMetaSplineMetadataDetails::GetMetadata() const
 template<typename T>
 struct FUpdateMetadata
 {
-	static void Execute(FMetaSplineMetadataDetails& InOutDetails, UMetaSplineMetadata& InOutMetadata, const FPropertyChangedEvent& InProperty)
+	static void Execute(FMetaSplineMetadataDetails& InOutDetails, UMetaSplineMetadata& InOutMetadata, const FProperty* InProperty)
 	{
-		auto* Curve = InOutMetadata.FindCurve<T>(InProperty.MemberProperty->GetFName());
+		auto* Curve = InOutMetadata.FindCurve<T>(InProperty->GetFName());
 		if (!Curve)
 		{
 			// #TODO: Make sure this doesn't happen...
@@ -170,12 +191,10 @@ struct FUpdateMetadata
 		USplineComponent* Spline = InOutDetails.SplineComp.Get();
 		const TSet<int32>& SelectedKeys = InOutDetails.SelectedKeys;
 
-		Spline->GetSplinePointsMetadata()->Modify();
-
 		TArray<UObject*>::TConstIterator It = InOutDetails.GetMetaClassInstances()->CreateConstIterator();
 		for (int32 Index : SelectedKeys)
 		{
-			Curve->Points[Index].OutVal = *InProperty.MemberProperty->ContainerPtrToValuePtr<T>(*It);
+			Curve->Points[Index].OutVal = *InProperty->ContainerPtrToValuePtr<T>(*It);
 			++It;
 		}
 
@@ -188,10 +207,21 @@ struct FUpdateMetadata
 
 void FMetaSplineMetadataDetails::OnFinishedChangingProperties(const FPropertyChangedEvent& InProperty)
 {
-	if (!GetMetadata())
+	auto* Metadata = GetMetadata();
+	if (!Metadata)
 		return;
 	
-	FMetaSplineTemplateHelpers::ExecuteOnProperty<FUpdateMetadata>(InProperty.MemberProperty, *this, *GetMetadata(), InProperty);
+	Metadata->SetFlags(RF_Transactional);
+
+	FProperty* ModifiedProperty = InProperty.MemberProperty;
+	FScopedTransaction Transaction(FText::Format(LOCTEXT("ModifiedProperty", "MetaSpline: {0} value changed"), ModifiedProperty->GetDisplayNameText()));
+
+	Metadata->Modify();
+	FMetaSplineTemplateHelpers::ExecuteOnProperty<FUpdateMetadata>(ModifiedProperty, *this, *Metadata, ModifiedProperty);
+	Metadata->PostEditChange();
+
+	static FProperty* MetadataProperty = FindFProperty<FProperty>(UMetaSplineComponent::StaticClass(), GET_MEMBER_NAME_CHECKED(UMetaSplineComponent, Metadata));
+	FComponentVisualizer::NotifyPropertyModified(SplineComp.Get(), MetadataProperty);
 }
 
 #undef LOCTEXT_NAMESPACE

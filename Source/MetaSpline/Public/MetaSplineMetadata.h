@@ -120,6 +120,8 @@ private:
 	template<typename T> decltype(auto) FindCurveMapForType() const { return FindCurveMapForType_Implementation<T>(this); }
 	template<typename T> decltype(auto) FindCurveMapForType() { return FindCurveMapForType_Implementation<T>(this); }
 
+	virtual void PostTransacted(const FTransactionObjectEvent& TransactionEvent) override;
+
 private:
 	UPROPERTY(EditAnywhere, Category = "Meta")
 	TMap<FName, FInterpCurveFloat> FloatCurves;
@@ -135,5 +137,6 @@ private:
 
 	friend class FMetaSplineMetadataDetails;
 	friend class FMetaSplineDebugRenderer;
+	friend class UMetaSplineComponent;
 	template<typename T> friend struct FAddCurve;
 };

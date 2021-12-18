@@ -42,6 +42,8 @@ void UMetaSplineMetadata::InsertPoint(int32 Index, float t, bool bClosedLoop)
 		{
 			Point.InVal += 1.0f;
 		});
+
+		NumPoints++;
 	}
 }
 
@@ -174,8 +176,10 @@ void UMetaSplineMetadata::Fixup(int32 InNumPoints, USplineComponent* SplineComp)
 		Point.InVal = static_cast<float>(Index);
 	});
 
+	NumCurves = 0;
 	TransformCurves([&](FName Key, auto& Curve)
 	{
+		NumCurves++;
 		auto& Points = Curve.Points;
 
 		if (!MetaClass)
@@ -238,9 +242,16 @@ void UMetaSplineMetadata::UpdateMetadataClass(UClass* InClass)
 	if (!MetaClass)
 		return;
 
-	for (TFieldIterator<FProperty> It(MetaClass); It; ++It)
+	for (FProperty* Property : TFieldRange<FProperty>(MetaClass))
 	{
-		FProperty* Property = *It;
 		FMetaSplineTemplateHelpers::ExecuteOnProperty<FAddCurve>(Property, *this, Property);
 	}
+}
+
+void UMetaSplineMetadata::PostTransacted(const FTransactionObjectEvent& TransactionEvent)
+{
+	Super::PostTransacted(TransactionEvent);
+
+	// Rerun construction script after each transaction.
+	GetTypedOuter<AActor>()->PostEditMove(false);
 }
