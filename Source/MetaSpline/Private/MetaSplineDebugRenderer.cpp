@@ -24,10 +24,16 @@ FMetaSplineDebugRenderer::~FMetaSplineDebugRenderer()
 void FMetaSplineDebugRenderer::Draw(class UCanvas* Canvas, class APlayerController*)
 {
 	const FConvexVolume& Frustum = Canvas->SceneView->ViewFrustum;
+	UWorld* World = Canvas->SceneView->Family->Scene->GetWorld();
 
 	TArray<FMetaSplineDebugInfo> CurrentFrameInfos;
-	for (UMetaSplineComponent* Component : TObjectRange<UMetaSplineComponent>())
+	for (UMetaSplineComponent* Component : TObjectRange<UMetaSplineComponent>(RF_ClassDefaultObject, true, EInternalObjectFlags::PendingKill))
 	{
+		if (Component->GetWorld() != World)
+		{
+			continue;
+		}
+
 		if (!Component->bDrawDebug || !Component->bDrawDebugMetadata)
 		{
 			continue;
@@ -113,12 +119,14 @@ TArray<FMetaSplineDebugInfo> FMetaSplineDebugRenderer::CollectInfosFromSpline(UC
 		return Infos;
 	}
 
+	check(Spline->GetNumberOfSplinePoints() == Metadata->NumPoints);
+
 	for (int32 i = 0; i < Spline->GetNumberOfSplinePoints(); i++)
 	{
 		const FVector WorldPosition = Spline->GetWorldLocationAtSplinePoint(i);
 		const FVector ScreenPosition = Canvas->Project(WorldPosition);
 
-		if (ScreenPosition.Z < 0.0f || ScreenPosition.X < 0.0f || ScreenPosition.Y < 0.0f ||
+		if (ScreenPosition.Z <= 0.0f || ScreenPosition.X < 0.0f || ScreenPosition.Y < 0.0f ||
 			ScreenPosition.X > Canvas->CachedDisplayWidth || ScreenPosition.Y > Canvas->CachedDisplayHeight)
 		{
 			continue;
