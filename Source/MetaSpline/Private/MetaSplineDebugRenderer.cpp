@@ -3,6 +3,7 @@
 #include "MetaSplineComponent.h"
 #include "MetaSplineMetadata.h"
 #include "MetaSplineSettings.h"
+#include "MetaSplineTemplateHelpers.h"
 
 #include "Debug/DebugDrawService.h"
 #include "Engine/Canvas.h"
@@ -103,6 +104,34 @@ void FMetaSplineDebugRenderer::Draw(class UCanvas* Canvas, class APlayerControll
 	}
 }
 
+template<typename T>
+struct FCollectInfoFromProperty
+{
+	static FText Execute(UMetaSplineMetadata& InOutMetadata, const FProperty* InProperty, int32 InIndex)
+	{
+		const auto* Curve = InOutMetadata.FindCurve<T>(InProperty->GetFName());
+		if (!Curve)
+		{
+			return FText();
+		}
+		
+		FFormatOrderedArguments Args;
+		Args.Add(InProperty->GetDisplayNameText());
+		
+		const T& Value = Curve->Points[InIndex].OutVal;
+		if constexpr (TIsFundamentalType<T>::Value)
+		{
+			Args.Add(Value);
+		}
+		else
+		{
+			Args.Add(FText::FromString(Value.ToString()));
+		}
+
+		return FText::Format(LOCTEXT("FormattedDebugInfo", "{0}: {1}"), Args);
+	}
+};
+
 TArray<FMetaSplineDebugInfo> FMetaSplineDebugRenderer::CollectInfosFromSpline(UCanvas* Canvas, UMetaSplineComponent* Spline)
 {
 	TArray<FMetaSplineDebugInfo> Infos;
@@ -127,30 +156,20 @@ TArray<FMetaSplineDebugInfo> FMetaSplineDebugRenderer::CollectInfosFromSpline(UC
 		const FVector ScreenPosition = Canvas->Project(WorldPosition);
 
 		if (ScreenPosition.Z <= 0.0f || ScreenPosition.X < 0.0f || ScreenPosition.Y < 0.0f ||
-			ScreenPosition.X > Canvas->CachedDisplayWidth || ScreenPosition.Y > Canvas->CachedDisplayHeight)
+			ScreenPosition.X > Canvas->SizeX || ScreenPosition.Y > Canvas->SizeY)
 		{
 			continue;
 		}
 
 		FTextBuilder Builder;
-		Metadata->TransformCurves([&](FName Key, auto Curve)
+		for (const FProperty* Prop : TFieldRange<FProperty>(Metadata->MetaClass))
 		{
-			FFormatOrderedArguments Args;
-			Args.Add(FText::FromName(Key));
-
-			auto& Value = Curve.Points[i].OutVal;
-			using TUnderlyingType = TCurveUnderlyingType<decltype(Curve)>::Type;
-			if constexpr (TIsFundamentalType<TUnderlyingType>::Value)
-			{
-				Args.Add(Value);
-			}
-			else
-			{
-				Args.Add(FText::FromString(Value.ToString()));
-			}
-
-			Builder.AppendLine(FText::Format(LOCTEXT("FormattedDebugInfo", "{0}: {1}"), Args));
-		});
+			// It's probably not optimal to do it in this order. An optimization would be to iterate over the property in the
+			// outer loop.
+			Builder.AppendLine(
+				FMetaSplineTemplateHelpers::ExecuteOnProperty<FCollectInfoFromProperty>(Prop, *Metadata, Prop, i)
+			);
+		}
 
 		Infos.Add({ Builder.ToText(), ScreenPosition });
 	}

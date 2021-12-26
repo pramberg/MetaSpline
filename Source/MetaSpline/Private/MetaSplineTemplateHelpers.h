@@ -11,12 +11,16 @@ public:
 	  * Functor should expose a static member function taking any number of variables, with the name 'Execute'
 	  */
 	template<template<typename> typename T, typename... FArgs>
-	static auto ExecuteOnProperty(FProperty* InProperty, FArgs&&... InArgs)
+	static auto ExecuteOnProperty(const FProperty* InProperty, FArgs&&... InArgs)
 	{
 		const FName Type = FName(InProperty->GetCPPType());
 		if (Type == TEXT("float"))
 			return T<float>::Execute(InArgs...);
 		else if (Type == TEXT("FVector"))
 			return T<FVector>::Execute(InArgs...);
+
+		checkNoEntry();
+
+		return TInvokeResult_T<decltype(&T<void>::Execute), FArgs...>();
 	}
 };
