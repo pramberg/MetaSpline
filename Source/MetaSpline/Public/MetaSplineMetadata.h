@@ -4,6 +4,8 @@
 #include "CoreMinimal.h"
 #include "Components/SplineComponent.h"
 #include <UObject/UnrealType.h>
+#include "MetaSplineTemplateHelpers.h"
+#include "Math/InterpCurve.h"
 #include "MetaSplineMetadata.generated.h"
 
 namespace CurveUnderlyingType_Private
@@ -19,7 +21,7 @@ namespace CurveUnderlyingType_Private
 
 template<typename T>
 struct TCurveUnderlyingType
-{ 
+{
 	using Type = typename CurveUnderlyingType_Private::TCurveUnderlyingTypeImpl<typename TDecay<T>::Type>::Type;
 };
 
@@ -49,6 +51,15 @@ public:
 	template<typename T> decltype(auto) FindCurve(const FName InName) { return FindCurveMapForType<T>().Find(InName); }
 
 private:
+
+#define IMPL_TRANSFORM_CURVE_CONTAINERS(InType) Function(FindCurveMapForType<InType>())
+	template<typename F>
+	void TransformCurveContainers(F&& Function)
+	{
+		META_SPLINE_SUPPORTED_TYPES(IMPL_TRANSFORM_CURVE_CONTAINERS);
+	}
+#undef IMPL_TRANSFORM_CURVE_CONTAINERS
+	
 	template<typename T, typename F>
 	void TransformCurveMap(F&& Function)
 	{
@@ -73,12 +84,13 @@ private:
 		}
 	}
 
+#define IMPL_TRANSFORM_CURVES(InType) TransformCurveMap<InType>(Forward<F>(Function))
 	template<typename F>
 	void TransformCurves(F&& Function)
 	{
-		TransformCurveMap<float>(Forward<F>(Function));
-		TransformCurveMap<FVector>(Forward<F>(Function));
+		META_SPLINE_SUPPORTED_TYPES(IMPL_TRANSFORM_CURVES);
 	}
+#undef IMPL_TRANSFORM_CURVES
 
 	template<typename F>
 	void TransformPoints(int32 StartIndex, F&& Function)
@@ -129,8 +141,23 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Meta")
 	TMap<FName, FInterpCurveVector> VectorCurves;
 
+	// This should be possible if we do custom serialization.
+//#define IMPL_CURVE_TYPES(InType) TMap<FName, FInterpCurve<InType>> InType##Curves
+//	DO_FOR_EACH_SUPPORTED_TYPE(IMPL_CURVE_TYPES);
+//#undef IMPL_CURVE_TYPES
+
 	UPROPERTY()
 	TSubclassOf<UObject> MetaClass;
+
+#if WITH_EDITORONLY_DATA
+	UPROPERTY()
+	UObject* CurrentDefaults;
+
+#endif
+
+#if WITH_EDITOR
+	void UpdateValuesOnUnmodifiedPoints();
+#endif
 
 	int32 NumCurves = 0;
 	int32 NumPoints = 0;
@@ -138,5 +165,6 @@ private:
 	friend class FMetaSplineMetadataDetails;
 	friend class FMetaSplineDebugRenderer;
 	friend class UMetaSplineComponent;
+	friend class FMetaSplineEditorModule;
 	template<typename T> friend struct FAddCurve;
 };

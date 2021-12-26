@@ -4,6 +4,9 @@
 #include "MetaSplineTemplateHelpers.h"
 #include "MetaSpline.h"
 
+#include "Algo/Find.h"
+#include "BlueprintCompilationManager.h"
+
 void UMetaSplineMetadata::InsertPoint(int32 Index, float t, bool bClosedLoop)
 {
 	check(Index >= 0);
@@ -214,6 +217,11 @@ struct FAddCurve
 	static void Execute(UMetaSplineMetadata& InOutMetadata, const FProperty* InProperty)
 	{
 		auto& Map = InOutMetadata.FindCurveMapForType<T>();
+		if (Map.Contains(InProperty->GetFName()))
+		{
+			return;
+		}
+
 		auto& Curve = Map.Add(InProperty->GetFName(), {});
 
 		const T& Value = *InProperty->ContainerPtrToValuePtr<T>(InOutMetadata.MetaClass->GetDefaultObject());
@@ -228,25 +236,89 @@ struct FAddCurve
 
 void UMetaSplineMetadata::UpdateMetadataClass(UClass* InClass)
 {
-	if (MetaClass == InClass)
+	if (MetaClass && MetaClass == InClass)
 	{
+		// Three step process to update metadata with new or removed variables, but maintaining any values that 
+		// should persist.
+
+		// Step 1: Add all curves that don't exist already.
+		for (FProperty* Property : TFieldRange<FProperty>(MetaClass))
+		{
+			FMetaSplineTemplateHelpers::ExecuteOnProperty<FAddCurve>(Property, *this, Property);
+		}
+		
+		// Step 2: Remove curves that don't exist anymore.
+		TransformCurveContainers([this](auto& Map)
+		{
+			TArray<FName> CurveNames;
+			Map.GetKeys(CurveNames);
+			for (const FName CurveName : CurveNames)
+			{			
+				if (!MetaClass->FindPropertyByName(CurveName))
+				{
+					Map.Remove(CurveName);
+				}
+			}
+		});
+		
+		if (!CurrentDefaults)
+			CurrentDefaults = MetaClass->GetDefaultObject();
 		return;
 	}
 
-	// #TODO: More sophisticated cleanup that only updates relevant properties instead of resetting everything.
-	FloatCurves.Empty();
-	VectorCurves.Empty();
+	TransformCurveContainers([](auto& Map) { Map.Empty(); });
 
 	MetaClass = InClass;
 
 	if (!MetaClass)
 		return;
 
+	CurrentDefaults = MetaClass->GetDefaultObject();
+
 	for (FProperty* Property : TFieldRange<FProperty>(MetaClass))
 	{
 		FMetaSplineTemplateHelpers::ExecuteOnProperty<FAddCurve>(Property, *this, Property);
 	}
 }
+
+#if WITH_EDITOR
+void UMetaSplineMetadata::UpdateValuesOnUnmodifiedPoints()
+{
+	TransformCurves([this](FName CurveName, auto& Curve)
+	{
+		if (!CurrentDefaults)
+		{
+			return;
+		}
+
+		FProperty* OldProp = CurrentDefaults->GetClass()->FindPropertyByName(CurveName);
+		FProperty* NewProp = MetaClass->FindPropertyByName(CurveName);
+		if (!NewProp || !OldProp)
+		{
+			return;
+		}
+
+		using TUnderlyingType = TCurveUnderlyingType<decltype(Curve)>::Type;
+		const auto& OldDefaultValue = *OldProp->ContainerPtrToValuePtr<TUnderlyingType>(CurrentDefaults);
+		const auto& NewDefaultValue = *NewProp->ContainerPtrToValuePtr<TUnderlyingType>(MetaClass->GetDefaultObject());
+
+		if (OldDefaultValue == NewDefaultValue)
+		{
+			return;
+		}
+
+		for (auto& Point : Curve.Points)
+		{
+			if (Point.OutVal == OldDefaultValue)
+			{
+				Point.OutVal = NewDefaultValue;
+			}
+		}
+	});
+
+	CurrentDefaults = MetaClass->GetDefaultObject();
+}
+#endif
 
 void UMetaSplineMetadata::PostTransacted(const FTransactionObjectEvent& TransactionEvent)
 {

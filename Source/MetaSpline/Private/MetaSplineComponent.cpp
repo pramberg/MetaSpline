@@ -153,10 +153,16 @@ void UMetaSplineComponent::PostEditChangeChainProperty(FPropertyChangedChainEven
 	static const FName MetadataClassName = GET_MEMBER_NAME_CHECKED(UMetaSplineComponent, MetadataClass);
 	if (PropertyChangedEvent.GetPropertyName() == MetadataClassName)
 	{
-		Metadata->UpdateMetadataClass(MetadataClass ? MetadataClass.Get() : nullptr);
-		UpdateSpline();
-		SynchronizeProperties();
+		RefreshMetadata();
 	}
+}
+
+void UMetaSplineComponent::RefreshMetadata()
+{
+	check(Metadata);
+	Metadata->UpdateMetadataClass(MetadataClass ? MetadataClass.Get() : nullptr);
+	UpdateSpline();
+	SynchronizeProperties();
 }
 #endif
 

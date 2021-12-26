@@ -23,7 +23,7 @@
 		{
 			"Name": "MetaSplineEditor",
 			"Type": "Editor",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "PostEngineInit"
 		}
 	]
 }

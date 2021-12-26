@@ -42,6 +42,13 @@ public:
 	virtual void PostEditImport() override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
+	
+	/** Ensures the metadata is up to date when the metadata class has been modified because the property was changed
+	 * to another class, or it was recompiled.
+	 *
+	 * This function should always be safe to call, and won't do anything if nothing has changed.
+	 */
+	void RefreshMetadata();
 #endif
 
 	virtual USplineMetadata* GetSplinePointsMetadata() override { return Metadata; }

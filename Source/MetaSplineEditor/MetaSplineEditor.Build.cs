@@ -37,6 +37,8 @@ public class MetaSplineEditor : ModuleRules
 				"UMGEditor",
 				"PropertyEditor",
 				"MetaSpline",
+				"Kismet",
+				"KismetCompiler",
 			}
 		);
 	}
