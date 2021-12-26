@@ -12,5 +12,7 @@ public:
 	virtual void ShutdownModule() override;
 
 private:
+#if !UE_BUILD_SHIPPING
 	TUniquePtr<class FMetaSplineDebugRenderer> DebugRenderer;
+#endif
 };
