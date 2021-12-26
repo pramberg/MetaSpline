@@ -109,14 +109,14 @@ struct FCollectInfoFromProperty
 {
 	static FText Execute(UMetaSplineMetadata& InOutMetadata, const FProperty* InProperty, int32 InIndex)
 	{
+		FFormatOrderedArguments Args;
+		Args.Add(InProperty->GetDisplayNameText());
+
 		const auto* Curve = InOutMetadata.FindCurve<T>(InProperty->GetFName());
 		if (!Curve)
 		{
-			return FText();
+			return FText::Format(LOCTEXT("InvalidProperty", "{0}: Doesn't exist"), Args);
 		}
-		
-		FFormatOrderedArguments Args;
-		Args.Add(InProperty->GetDisplayNameText());
 		
 		const T& Value = Curve->Points[InIndex].OutVal;
 		if constexpr (TIsFundamentalType<T>::Value)
