@@ -28,8 +28,6 @@ public:
 		const FName Type = FName(InProperty->GetCPPType());
 		META_SPLINE_SUPPORTED_TYPES(IMPL_EXECUTE_ON_PROPERTY_FOR_TYPE);
 
-		checkNoEntry();
-
 		return TInvokeResult_T<decltype(&T<void>::Execute), FArgs...>();
 	}
 };
