@@ -9,7 +9,7 @@ if (Type == InType##Name)						  \
 	return T<InType>::Execute(InArgs...)
 
 #define META_SPLINE_SUPPORTED_TYPES(InExec) \
-InExec(float); \
+InExec(double); \
 InExec(FVector)
 
 class FMetaSplineTemplateHelpers

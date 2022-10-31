@@ -27,7 +27,7 @@ void FMetaSplineDebugRenderer::Draw(class UCanvas* Canvas, class APlayerControll
 	UWorld* World = Canvas->SceneView->Family->Scene->GetWorld();
 
 	TArray<FMetaSplineDebugInfo> CurrentFrameInfos;
-	for (UMetaSplineComponent* Component : TObjectRange<UMetaSplineComponent>(RF_ClassDefaultObject, true, EInternalObjectFlags::PendingKill))
+	for (UMetaSplineComponent* Component : TObjectRange<UMetaSplineComponent>(RF_ClassDefaultObject, true, EInternalObjectFlags::Garbage))
 	{
 		if (Component->GetWorld() != World)
 		{

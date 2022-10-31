@@ -193,9 +193,10 @@ void UMetaSplineMetadata::Fixup(int32 InNumPoints, USplineComponent* SplineComp)
 			const float InVal = Points.Num() > 0 ? Points[Points.Num() - 1].InVal + 1.0f : 0.0f;
 
 			using TUnderlyingType = TCurveUnderlyingType<decltype(Curve)>::Type;
+			using TCastToType = TCurveCastTo<TUnderlyingType>::Type;
 
 			const FProperty* Property = MetaClass->FindPropertyByName(Key);
-			Points.Add({ InVal, *Property->ContainerPtrToValuePtr<TUnderlyingType>(MetaClass->GetDefaultObject()) });
+			Points.Add({ InVal, static_cast<TCastToType>(*Property->ContainerPtrToValuePtr<TUnderlyingType>(MetaClass->GetDefaultObject())) });
 		}
 	});
 

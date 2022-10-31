@@ -37,7 +37,7 @@ FVector UMetaSplineComponent::GetMetadataVectorAtPoint(FName InProperty, int32 I
 
 float UMetaSplineComponent::GetMetadataFloatAtKey(FName InProperty, float InKey) const
 {
-	return GetPropertyValueAtKey<float>(Metadata, InKey, InProperty);
+	return GetPropertyValueAtKey<double>(Metadata, InKey, InProperty);
 }
 
 FVector UMetaSplineComponent::GetMetadataVectorAtKey(FName InProperty, float InKey) const

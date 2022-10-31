@@ -12,7 +12,7 @@ namespace CurveUnderlyingType_Private
 {
 	template<typename T> struct TCurveUnderlyingTypeImpl { using Type = void; };
 	template<typename T> struct TCurveUnderlyingTypeImpl<FInterpCurve<T>> { using Type = T; };
-	template<> struct TCurveUnderlyingTypeImpl<FInterpCurveFloat> { using Type = float; };
+	template<> struct TCurveUnderlyingTypeImpl<FInterpCurveFloat> { using Type = double; };
 	template<> struct TCurveUnderlyingTypeImpl<FInterpCurveVector> { using Type = FVector; };
 	template<> struct TCurveUnderlyingTypeImpl<FInterpCurveQuat> { using Type = FQuat; };
 	template<> struct TCurveUnderlyingTypeImpl<FInterpCurveLinearColor> { using Type = FLinearColor; };
@@ -24,6 +24,10 @@ struct TCurveUnderlyingType
 {
 	using Type = typename CurveUnderlyingType_Private::TCurveUnderlyingTypeImpl<typename TDecay<T>::Type>::Type;
 };
+
+template<typename T> struct TCurveCastTo { using Type = T; };
+template<> struct TCurveCastTo<double> { using Type = float; };
+
 
 /**
  * Holds the actual curves that are generated from the meta class.
@@ -125,7 +129,7 @@ private:
 	template<typename T, typename TSelf>
 	static decltype(auto) FindCurveMapForType_Implementation(TSelf* InSelf)
 	{
-		if constexpr (TIsSame<T, float>::Value) { return (InSelf->FloatCurves); }
+		if constexpr (TIsSame<T, double>::Value) { return (InSelf->FloatCurves); }
 		else if constexpr (TIsSame<T, FVector>::Value) { return (InSelf->VectorCurves); }
 		else { static_assert(false, "Curve type not supported!"); }
 	}
